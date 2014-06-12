@@ -28,15 +28,9 @@ static NSString * const kBounceAnimation = @"bounce";
 static NSString * const kAppearAnimation = @"appear";
 static NSString * const kDisappearAnimation = @"disappear";
 
-@synthesize historyButton;
 @synthesize contactsButton;
 @synthesize dialerButton;
 @synthesize settingsButton;
-@synthesize chatButton;
-@synthesize historyNotificationView;
-@synthesize historyNotificationLabel;
-@synthesize chatNotificationView;
-@synthesize chatNotificationLabel;
 
 #pragma mark - Lifecycle Functions
 
@@ -47,15 +41,9 @@ static NSString * const kDisappearAnimation = @"disappear";
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
-    [historyButton release];
     [contactsButton release];
     [dialerButton release];
     [settingsButton release];
-    [chatButton release];
-    [historyNotificationView release];
-    [historyNotificationLabel release];
-    [chatNotificationView release];
-    [chatNotificationLabel release];
     
     [super dealloc];
 }
@@ -109,20 +97,6 @@ static NSString * const kDisappearAnimation = @"disappear";
                                                object:nil];
     
     {
-        UIButton *historyButtonLandscape = (UIButton*) [landscapeView viewWithTag:[historyButton tag]];
-        // Set selected+over background: IB lack !
-        [historyButton setBackgroundImage:[UIImage imageNamed:@"history_selected.png"]
-                                 forState:(UIControlStateHighlighted | UIControlStateSelected)];
-        
-        // Set selected+over background: IB lack !
-        [historyButtonLandscape setBackgroundImage:[UIImage imageNamed:@"history_selected_landscape.png"]
-                                           forState:(UIControlStateHighlighted | UIControlStateSelected)];
-        
-        [LinphoneUtils buttonFixStatesForTabs:historyButton];
-        [LinphoneUtils buttonFixStatesForTabs:historyButtonLandscape];
-    }
-    
-    {
         UIButton *contactsButtonLandscape = (UIButton*) [landscapeView viewWithTag:[contactsButton tag]];
         // Set selected+over background: IB lack !
         [contactsButton setBackgroundImage:[UIImage imageNamed:@"contacts_selected.png"]
@@ -162,20 +136,6 @@ static NSString * const kDisappearAnimation = @"disappear";
         [LinphoneUtils buttonFixStatesForTabs:settingsButtonLandscape];
     }
     
-    {
-        UIButton *chatButtonLandscape = (UIButton*) [landscapeView viewWithTag:[chatButton tag]];
-        // Set selected+over background: IB lack !
-        [chatButton setBackgroundImage:[UIImage imageNamed:@"chat_selected.png"]
-                              forState:(UIControlStateHighlighted | UIControlStateSelected)];
-        
-        // Set selected+over background: IB lack !
-        [chatButtonLandscape setBackgroundImage:[UIImage imageNamed:@"chat_selected_landscape.png"]
-                              forState:(UIControlStateHighlighted | UIControlStateSelected)];
-        
-        [LinphoneUtils buttonFixStatesForTabs:chatButton];
-        [LinphoneUtils buttonFixStatesForTabs:chatButtonLandscape];
-    }
-    
     [super viewDidLoad]; // Have to be after due to TPMultiLayoutViewController
 }
 
@@ -190,13 +150,9 @@ static NSString * const kDisappearAnimation = @"disappear";
 - (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
     // Force the animations
     [[self.view layer] removeAllAnimations];
-    [historyNotificationView.layer setTransform:CATransform3DIdentity];
-    [chatNotificationView.layer setTransform:CATransform3DIdentity];
 }
 
 - (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
-    [chatNotificationView setHidden:TRUE];
-    [historyNotificationView setHidden:TRUE];
     [self update:FALSE];
 }
 
@@ -206,10 +162,6 @@ static NSString * const kDisappearAnimation = @"disappear";
 - (void)applicationWillEnterForeground:(NSNotification*)notif { 
     // Force the animations 
     [[self.view layer] removeAllAnimations];
-    [historyNotificationView.layer setTransform:CATransform3DIdentity];
-    [chatNotificationView.layer setTransform:CATransform3DIdentity];
-    [chatNotificationView setHidden:TRUE];
-    [historyNotificationView setHidden:TRUE];
     [self update:FALSE];
 }
 
@@ -226,19 +178,6 @@ static NSString * const kDisappearAnimation = @"disappear";
 }
 
 - (void)settingsUpdate:(NSNotification*)notif {
-    if([[LinphoneManager instance] lpConfigBoolForKey:@"animations_preference"] == false) {
-        [self stopBounceAnimation:kBounceAnimation target:chatNotificationView];
-        chatNotificationView.layer.transform = CATransform3DIdentity;
-        [self stopBounceAnimation:kBounceAnimation target:historyNotificationView];
-        historyNotificationView.layer.transform = CATransform3DIdentity;
-    } else {
-        if(![chatNotificationView isHidden] && [chatNotificationView.layer animationForKey:kBounceAnimation] == nil) {
-            [self startBounceAnimation:kBounceAnimation target:chatNotificationView];
-        }
-        if(![historyNotificationView isHidden] && [historyNotificationView.layer animationForKey:kBounceAnimation] == nil) {
-            [self startBounceAnimation:kBounceAnimation target:historyNotificationView];
-        }
-    }
 }
 
 - (void)textReceived:(NSNotification*)notif {
@@ -259,66 +198,9 @@ static NSString * const kDisappearAnimation = @"disappear";
 }
 
 - (void)updateUnreadMessage:(BOOL)appear{
-    int unreadMessage = [LinphoneManager unreadMessageCount];
-    if (unreadMessage > 0) {
-        if([chatNotificationView isHidden]) {
-            [chatNotificationView setHidden:FALSE];
-            if([[LinphoneManager instance] lpConfigBoolForKey:@"animations_preference"] == true) {
-                if(appear) {
-                    [self appearAnimation:kAppearAnimation target:chatNotificationView completion:^(BOOL finished){
-                        [self startBounceAnimation:kBounceAnimation target:chatNotificationView];
-                        [chatNotificationView.layer removeAnimationForKey:kAppearAnimation];
-                    }];
-                } else {
-                    [self startBounceAnimation:kBounceAnimation target:chatNotificationView];
-                }
-            }
-        }
-        [chatNotificationLabel setText:[NSString stringWithFormat:@"%i", unreadMessage]];
-    } else {
-        if(![chatNotificationView isHidden]) {
-            [self stopBounceAnimation:kBounceAnimation target:chatNotificationView];
-            if(appear) {
-                [self disappearAnimation:kDisappearAnimation target:chatNotificationView completion:^(BOOL finished){
-                    [chatNotificationView setHidden:TRUE];
-                    [chatNotificationView.layer removeAnimationForKey:kDisappearAnimation];
-                }];
-            } else {
-                [chatNotificationView setHidden:TRUE];
-            }
-        }
-    }
 }
 
 - (void)updateMissedCall:(int)missedCall appear:(BOOL)appear{
-    if (missedCall > 0) {
-        if([historyNotificationView isHidden]) {
-            [historyNotificationView setHidden:FALSE];
-            if([[LinphoneManager instance] lpConfigBoolForKey:@"animations_preference"] == true) {
-                if(appear) {
-                    [self appearAnimation:kAppearAnimation target:historyNotificationView completion:^(BOOL finished){
-                        [self startBounceAnimation:kBounceAnimation target:historyNotificationView];
-                        [historyNotificationView.layer removeAnimationForKey:kAppearAnimation];
-                    }];
-                } else {
-                    [self startBounceAnimation:kBounceAnimation target:historyNotificationView];
-                }
-            }
-        }
-        [historyNotificationLabel setText:[NSString stringWithFormat:@"%i", missedCall]];
-    } else {
-        if(![historyNotificationView isHidden]) {
-            [self stopBounceAnimation:kBounceAnimation target:historyNotificationView];
-            if(appear) {
-                [self disappearAnimation:kDisappearAnimation target:historyNotificationView completion:^(BOOL finished){
-                    [historyNotificationView setHidden:TRUE];
-                    [historyNotificationView.layer removeAnimationForKey:kDisappearAnimation];
-                }];
-            } else {
-                [historyNotificationView setHidden:TRUE];
-            }
-        }
-    }
 }
 
 - (void)appearAnimation:(NSString*)animationID target:(UIView*)target completion:(void (^)(BOOL finished))completion {
@@ -362,12 +244,6 @@ static NSString * const kDisappearAnimation = @"disappear";
 }
          
 - (void)updateView:(UICompositeViewDescription*) view {  
-    // Update buttons
-    if([view equal:[HistoryViewController compositeViewDescription]]) {
-        historyButton.selected = TRUE;
-    } else {
-        historyButton.selected = FALSE;
-    }
     if([view equal:[ContactsViewController compositeViewDescription]]) {
         contactsButton.selected = TRUE;
     } else {
@@ -383,19 +259,10 @@ static NSString * const kDisappearAnimation = @"disappear";
     } else {
         settingsButton.selected = FALSE;
     }
-    if([view equal:[ChatViewController compositeViewDescription]]) {
-        chatButton.selected = TRUE;
-    } else {
-        chatButton.selected = FALSE;
-    }
 }
 
 
 #pragma mark - Action Functions
-
-- (IBAction)onHistoryClick:(id)event {
-    [[PhoneMainView instance] changeCurrentView:[HistoryViewController compositeViewDescription]];
-}
 
 - (IBAction)onContactsClick:(id)event {
     [ContactSelection setSelectionMode:ContactSelectionModeNone];
@@ -412,11 +279,6 @@ static NSString * const kDisappearAnimation = @"disappear";
 - (IBAction)onSettingsClick:(id)event {
     [[PhoneMainView instance] changeCurrentView:[SettingsViewController compositeViewDescription]];
 }
-
-- (IBAction)onChatClick:(id)event {
-    [[PhoneMainView instance] changeCurrentView:[ChatViewController compositeViewDescription]];
-}
-
 
 #pragma mark - TPMultiLayoutViewController Functions
 
